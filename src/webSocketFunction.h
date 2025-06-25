@@ -6,9 +6,9 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include "Tuya.h"
-#include <log.h>
+#include <logger.h>
 
-extern LOG Log;
+extern LOGGER Logger;
 extern const char *settingsFile;
 
 extern AsyncWebSocket webSocket;
@@ -92,7 +92,7 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
       settings.bataryVoltageMax = doc["bataryVoltageMax"].as<float>();
 
       if (SaveSettingsToLFS.write(settings)){
-        Log.user_text("New settings write to FS. Reload...");
+        Logger.print("New settings write to FS. Reload...");
       ESP.restart();
       }
 

@@ -1,8 +1,12 @@
 #pragma once
 #include <Arduino.h>
 #include <LittleFS.h>
+// #include "telegramm.h"
+#include "AsyncTelegram2.h"
+#define TIMEFORMAT "%d.%m.%y %H:%M"
+extern AsyncTelegram2 myBot;
 
-class LOG
+class LOGGER : public Print
 {
 private:
     const char *logFile;
@@ -12,72 +16,79 @@ private:
     void printToFile(const char *filename, const char *str);
 
 public:
-    LOG() = delete;
-    LOG(const char *logFile) : logFile(logFile) { LittleFS.begin(); }
-    ~LOG() {};
+    LOGGER() = delete;
+    LOGGER(const char *logFile) : logFile(logFile) { LittleFS.begin(); }
+    ~LOGGER() {};
+    size_t write(uint8_t ch) override;
+    size_t write(const uint8_t *buffer, size_t size) override;
     void wifi_disconect();
     void reset_reason();
-    void user_text(const char *msg);
     bool deleteLog() { return LittleFS.remove(logFile); }
 };
 
-void LOG::user_text(const char *msg)
-{
-    printToFile(logFile, msg);
-}
-
-void LOG::wifi_disconect()
+void LOGGER::wifi_disconect()
 {
     static bool oneWriteConected = false, oneWriteDisconected = false;
 
     if (!oneWriteConected and WiFi.status() == WL_CONNECTED)
     {
-        printToFile(logFile, "Wifi conected.");
+        print("Wifi conected.");
         oneWriteConected = true;
         oneWriteDisconected = false;
     }
 
     if (!oneWriteDisconected and WiFi.status() != WL_CONNECTED)
     {
-        char buf[50]{};
-        sprintf(buf, "Wifi disconected. WiFi.status = %s", getWiFiStatusStr(WiFi.status())); //wl_status_t statatus = WiFi.status();
-        printToFile(logFile, buf);
+        printf("Wifi disconected. WiFi.status = %s", getWiFiStatusStr(WiFi.status())); // wl_status_t statatus = WiFi.status();
         oneWriteDisconected = true;
         oneWriteConected = false;
     }
 }
 
-void LOG::printToFile(const char *filename, const char *str)
+void LOGGER::printToFile(const char *filename, const char *str)
 {
     char timeStr[20];
     timeString(timeStr, sizeof(timeStr));
     if (LittleFS.totalBytes() - LittleFS.usedBytes() < 100)
+    {
+        TBMessage msg;
+        File file = LittleFS.open(filename, "a");
+        if (file)
+        {
+            file.print("Скінчилося місце у ФС.");
+            myBot.sendMessage(msg, "Скінчилося місце у ФС. Файл логу видалений.");
+            myBot.sendDocument(msg, file, file.size(), AsyncTelegram2::DocumentType::TEXT, file.name());
+            file.close();
+        }
         LittleFS.remove(filename);
+    }
     File file = LittleFS.open(filename, "a");
     file.printf("%s %s\n", timeStr, str);
     file.close();
 }
 
 // Логируем причину перезагрузки
-void LOG::reset_reason()
+void LOGGER::reset_reason()
 {
     esp_reset_reason_t reason = esp_reset_reason();
     const char *reasonStr = getResetReasonStr(reason);
-    printToFile(logFile, reasonStr);
+    print(reasonStr);
 }
 
-void LOG::timeString(char *timeStr, size_t size)
+void LOGGER::timeString(char *timeStr, size_t size)
 {
+    static u32_t prevMillis = millis();
     struct tm timeinfo;
-    while (!getLocalTime(&timeinfo, 1000))
+    while (!getLocalTime(&timeinfo, 1000) and (millis() - prevMillis) < 15000)
     {
+
         Serial.println("Подключение к NTP...");
     }
     // Форматируем время для логирования
-    strftime(timeStr, size, "%Y-%m-%d %H:%M:%S", &timeinfo);
+    strftime(timeStr, size, TIMEFORMAT, &timeinfo);
 }
 
-const char *LOG::getResetReasonStr(esp_reset_reason_t reason)
+const char *LOGGER::getResetReasonStr(esp_reset_reason_t reason)
 {
     switch (reason)
     {
@@ -108,7 +119,7 @@ const char *LOG::getResetReasonStr(esp_reset_reason_t reason)
     }
 }
 
-const char *LOG::getWiFiStatusStr(wl_status_t statatus)
+const char *LOGGER::getWiFiStatusStr(wl_status_t statatus)
 {
     switch (statatus)
     {
@@ -131,4 +142,23 @@ const char *LOG::getWiFiStatusStr(wl_status_t statatus)
     default:
         return "Unknown WL status";
     }
+}
+
+size_t LOGGER::write(uint8_t ch)
+{
+    static String str;
+    if ((char)ch == '\n')
+    {
+        printToFile(logFile, str.c_str());
+        str = "";
+        return 1;
+    }
+    str += (char)ch;
+    return 1;
+}
+
+size_t LOGGER::write(const uint8_t *buffer, size_t size)
+{
+    printToFile(logFile, (const char *)buffer);
+    return strlen((const char *)buffer);
 }

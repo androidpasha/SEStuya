@@ -46,12 +46,13 @@ function updateBatteryVoltages(data) {
         .toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
     document.getElementById('sistemTime').textContent = result;
-
-
     const freeHeap = parseInt(data['freeHeap']);
     document.getElementById('freeHeap').textContent = freeHeap.toString();
     const FSfree = parseInt(data['FSfree']);
     document.getElementById('FSfree').textContent = FSfree.toString();
+    const tuyaSwith = (data['tuyaSwith']);
+    document.getElementById('tuyaSwith').checked = Boolean(tuyaSwith);
+    
 
 }
 
