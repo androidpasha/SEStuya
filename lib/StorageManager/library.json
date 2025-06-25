@@ -1,0 +1,23 @@
+{
+    "name": "StorageManager",
+    "version": "0.1.0",
+    "description": "Saving different types of variables in flash for ESP8266/ESP32.",
+    "keywords": [
+        "FS", "LittleFS"
+    ],
+    "repository":
+    {
+        "type": "git",
+        "url": "https://github.com/"
+    },
+    "authors": [
+        {
+            "name": "Pavel Avramenko"
+        }
+    ],
+    "license": "LGPL-2.1+",
+    "frameworks": "arduino",
+    "platforms": [
+        "espressif8266", "espressif32"
+    ]
+}

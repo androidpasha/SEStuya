@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+</html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Налаштування</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+</head>
+
+<body>
+    <script src="webSoket.js"></script>
+    <script src="webSoket2.js"></script>
+    <script src="htmlfunc.js"></script>
+    <script src="transferdata.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <div class="center battery-title">
+        Налаштування контролю батареї
+    </div>
+    <div class="toggle-container">
+        <div class="toggle-label">Напруга батареї: </div>
+        <div class="toggle-label" id="bat4">0,0 В</div>
+    </div>
+    <div class="toggle-container">
+        <div class="toggle-label">Час роботи: </div>
+        <div class="toggle-label" id="sistemTime">0д. 00:00:00</div>
+    </div>
+    <div class="toggle-container">
+        <div class="toggle-label">Free heap,b: </div>
+        <div class="toggle-label" id="freeHeap"></div>
+    </div>
+    <div class="toggle-container">
+        <div class="toggle-label">Free FS, b: </div>
+        <div class="toggle-label" id="FSfree"></div>
+    </div>
+    <div class="invisible">
+        <div class="toggle-container">
+            <div class="toggle-label">Комірка 1: </div>
+            <div class="toggle-label" id="bat0">0,0 В</div>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle-label">Комірка 2: </div>
+            <div class="toggle-label" id="bat1">0,0 В</div>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle-label">Комірка 3: </div>
+            <div class="toggle-label" id="bat2">0,0 В</div>
+        </div>
+        <div class="toggle-container">
+            <div class="toggle-label">Комірка 4: </div>
+            <div class="toggle-label" id="bat3">0,0 В</div>
+        </div>
+    </div>
+    <br>
+    <div class="toggle-container">
+        <span class="toggle-label">Стан розетки:</span>
+        <label class="tuyaSwith">
+            <input type="checkbox" id="tuyaSwith" onchange="checed(this)">
+            <span class="slider"></span>
+        </label>
+    </div>
+    </div>
+    <br>
+
+    <table>
+
+        <tr class="highlight-row">
+            <td>
+                <div class="center section"><b>Параметри Wi-fi мережі:</b></div>
+                </label>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center"><label for="wifiSsid"><b>Wi-fi ssid :</b></label><br>
+                    <input id="wifiSsid" name="wifiSsid" placeholder="Назва бездротової мережі">
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center"><label for="wifiPass"><b>Wi-fi pass:</b></label><br>
+                    <input type="password" id="wifiPass" name="wifiPass" placeholder="Пароль бездротової мережі">
+                </div>
+            </td>
+        </tr>
+
+        <tr class="highlight-row">
+            <td>
+                <div class="center section"><b>Параметри розетки Tuya:</b></div>
+                </label>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center"><label for="tuyaDevId"><b>Tuya device id:</b></label><br>
+                    <input type="text" id="tuyaDevId" name="tuyaDevId" placeholder="Унікальний id пристрою">
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center"><label for="tuyaLocalKey"><b>Tuya locak key:</b></label><br>
+                    <input id="tuyaLocalKey" name="tuyaLocalKey" placeholder="Ключ пристрою">
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center input-group"><label for="tuya_ip"><b>Tuya local ip:</b></label><br>
+                    <input type="number" id="tuyaIp1" min="0" max="255" step="1" maxlength="3" pattern="\d*"
+                        inputmode="numeric" class="segment" name="tuyaIp1" oninput="moveNext(this, event)" id="tuyaIp1">
+                    <span class="dot">.</span>
+                    <input type="number" id="tuyaIp2" min="0" max="255" step="1" maxlength="3" pattern="\d*"
+                        inputmode="numeric" class="segment" name="tuyaIp2" oninput="moveNext(this, event)" id="tuyaIp2">
+                    <span class="dot">.</span>
+                    <input type="number" id="tuyaIp3" min="0" max="255" step="1" maxlength="3" pattern="\d*"
+                        inputmode="numeric" class="segment" name="tuyaIp3" oninput="moveNext(this, event)" id="tuyaIp1">
+                    <span class="dot">.</span>
+                    <input type="number" id="tuyaIp4" maxlength="3" pattern="\d*" inputmode="numeric" class="segment"
+                        name="tuyaIp4">
+                </div>
+            </td>
+        </tr>
+        <tr class="highlight-row">
+            <td>
+
+                <div class="center section"><b>Параметри контролера батареї:</b></div>
+                </label>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center"><label for="timer"><b>Затримка спрацюванння у хвилинах:</b></label><br>
+                    <select id="Timer" name="timer">
+                        <option value="0">0</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="30">30</option>
+                        <option value="60">60</option>
+                    </select>
+                </div>
+            </td>
+        </tr>
+
+        <tr>
+            <td>
+                <div class="center input-group"><label for="bataryVoltage"><b>Напруги min-max, В:</b></label><br>
+                    <input type="number" id="bataryVoltageMin" min="12" max="16.8" step="0.1" pattern="\d*"
+                        inputmode="decimal" class="segment" name="bataryVoltageMin" placeholder="min">
+                    -
+                    <input type="number" id="bataryVoltageMax" min="12" max="16.8" step="0.1" pattern="\d*"
+                        inputmode="decimal" class="segment" name="bataryVoltageMax" placeholder="max">
+                </div>
+            </td>
+        </tr>
+
+        <tr class="highlight-row">
+            <td class="invisible">
+                <div class="center section"><b>Параметри Telegram:</b></div>
+                </label>
+            </td>
+        </tr>
+
+        <td class="invisible">
+            <div class="center"><label for="telegramBotToken"><b>Telegram bot token:</b></label><br>
+                <input type="text" id="telegramBotToken" name="telegramBotToken" placeholder="Впишіть token">
+            </div>
+        </td>
+    </table>
+    
+    <div class="center">
+        <br><button id="ButtonSave" type="submit" onclick="saveSettings()">Зберегти</button><br><br>
+        <br><a href="log.txt">Переглянути log.txt</a><br><br><br>
+        <br><a href="#" onclick="confirmDelete(event)">видалити log.txt</a><br><br><br>
+    </div>
+  
+    
+</body>
+
+</html>

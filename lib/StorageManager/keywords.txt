@@ -1,0 +1,5 @@
+StorageManager KEYWORD1
+deleteFile KEYWORD2
+formatFS KEYWORD2
+write KEYWORD2
+read KEYWORD2
