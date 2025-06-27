@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Графік</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" >
+  <meta name="theme-color" content="#ffffff">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-scale-timestack/dist/chartjs-scale-timestack.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
+  <script type="module" src="/acquisitions.js"></script>
+ <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
+
+    #container {
+      width: 100%;
+      height: 100%;
+      /* или auto, или фикс. px, или vh */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+      /* padding: 1rem; */
+    }
+
+    canvas {
+      width: 100% !important;
+      /* на всю ширину контейнера */
+      height: 100% !important;
+      /* на всю высоту контейнера */
+      touch-action: none;
+    }
+  </style>
+</head>
+
+<body>
+
+
+  <div id="container"><canvas id="acquisitions"></canvas></div>
+</body>
+
+</html>

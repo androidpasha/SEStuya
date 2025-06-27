@@ -13,16 +13,15 @@
 #include <vector>
 #include "logger.h"
 #include "telegramm.h"
- 
-const char *ApSsid PROGMEM = "netis_0466AE_2"; // Имя вашей Wi-Fi сети
-const char *ApPassword PROGMEM = "10021970";   // Пароль от вашей Wi-Fi сети
-#define MYTZ "EET-2EEST,M3.5.0/3,M10.5.0/4" // Киев https://remotemonitoringsystems.ca/time-zone-abbreviations.php
+
+const char *ApSsid PROGMEM = "SESTuya";        // Имя точки доступа
+const char *ApPassword PROGMEM = "1234567890"; // Пароль точки доступа
+#define MYTZ "EET-2EEST,M3.5.0/3,M10.5.0/4"    // Киев https://remotemonitoringsystems.ca/time-zone-abbreviations.php
 constexpr u16_t localPort PROGMEM = 8888;      // Порт для приема широковещательных пакетов
 constexpr float vRef = 3.271;                  // 3.3 вольта по умолчанию. Меняется между екземплярами есп.
 constexpr u16_t R1 = 100, R2 = 20;             // Резистивный делитель напряжения батареи. R1 верхний.
 const char *logFile PROGMEM = "/log.txt";
 const char *settingsFile PROGMEM = "/settings.bin";
-const char *tuyaSwithFile PROGMEM = "/tuyaSwithState.bin";
 // float LONGITUDE = 35.186532, LATITUDE = 47.794765;// GPS координаты Запорожье-1 для определение восхода/заката на местности
 // byte TimeZone = 2;
 
@@ -49,34 +48,31 @@ void setup()
 {
   Serial.begin(115200);
   delay(5000);
-  // if (SaveSettingsToLFS.read(settings)) // Читаем файл настроек
-  {
-    // Применяем прочитанные настройки
-    if (esp_reset_reason() == ESP_RST_POWERON)
-      tuyaSwith = settings.tuyaSwith;
-    else
-      settings.tuyaSwith = tuyaSwith; // Берем значение из RTC.
+  __cplusplus; // Версия С++
+  // Применяем прочитанные настройки
+  if (esp_reset_reason() == ESP_RST_POWERON)
+    tuyaSwith = settings.tuyaSwith;
+  else
+    settings.tuyaSwith = tuyaSwith; // Берем значение из RTC.
 
-    Serial.printf("\nTuyaSwith = %s.\n", tuyaSwith ? "true" : "false");
-    Rozetka.devIp = settings.getTuyaIp();
-    Rozetka.devId = settings.tuyaDevId;
-    Rozetka.localKey = settings.tuyaLocalKey;
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(settings.wifiSsid, settings.wifiPass);
-    Serial.printf("Спроба підключення до %s, пароль %s\n", settings.wifiSsid, settings.wifiPass);
-    while (WiFi.status() != WL_CONNECTED && millis() < 10000)
-    {
-      Serial.print(".");
-      delay(100);
-    }
+  Serial.printf("\nTuyaSwith = %s.\n", tuyaSwith ? "true" : "false");
+  Rozetka.devIp = settings.getTuyaIp();
+  Rozetka.devId = settings.tuyaDevId;
+  Rozetka.localKey = settings.tuyaLocalKey;
+  WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.begin(settings.wifiSsid, settings.wifiPass);
+  Serial.printf("Спроба підключення до %s, пароль %s\n", settings.wifiSsid, settings.wifiPass);
+  while (WiFi.status() != WL_CONNECTED && millis() < 10000)
+  {
+    Serial.print(".");
+    delay(100);
   }
 
   if (WiFi.status() == WL_CONNECTED)
   {
     Serial.printf("Вдалє з'єднання з Wi-Fi, ip: %s\n", WiFi.localIP().toString().c_str()); // const Printable& x
-    // configTime(2 * 3600, 3600, "pool.ntp.org", "time.nist.gov");
-    configTzTime(MYTZ, "time.google.com", "time.windows.com", "pool.ntp.org");
+    configTzTime(MYTZ, "time.google.com"), "time.windows.com", "pool.ntp.org";
     setupTelegramBot();
   }
   else
@@ -85,42 +81,41 @@ void setup()
     WiFi.mode(WIFI_AP);
     WiFi.softAP(ApSsid, ApPassword);
     Serial.printf("Підключення до %s не вдалося. Запущена точка доступу %s, пароль %s. Перейдіть на esp.local або 192.168.4.1 для налаштування.\n", settings.wifiSsid, ApSsid, ApPassword);
-    Logger.print("WIFI_AP start.");
+    Logger.print(F("WIFI_AP start."));
   }
 
   Logger.reset_reason();
- 
 
   MDNS.begin("esp");                                             // esp.local
   webServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) // откр index.html при запросе корня сервера
-               { request->send(LittleFS, "/settings.html", "text/html"); });
+               { request->send(LittleFS, F("/settings.html"), F("text/html")); });
 
   webServer.on("/tuyaSwithUserPush", HTTP_GET, [](AsyncWebServerRequest *request)
-               {    if (!request->hasParam("state")) {request->send(400, "text/plain", "Missing 'state' parameter"); return;}
+               {    if (!request->hasParam("state")) {request->send(400, F("text/plain"), F("Missing 'state' parameter")); return;}
     String stateStr = request->getParam("state")->value();
-    bool state = (stateStr == "1" || stateStr.equalsIgnoreCase("true"));
+    bool state = (stateStr == "1" || stateStr.equalsIgnoreCase(F("true")));
     // Возвращаем ответ
 
     if (Rozetka.relay(state)) {
         tuyaSwith = state;
         settings.tuyaSwith = state;
         Logger.printf("User push relay: %s", state ? "On" : "Off");
-        request->send(200, "text/plain", state ? "1" : "0");
+        request->send(200, F("text/plain"), state ? "1" : "0");
     } else {
-        request->send(500, "text/plain", "Failed to switch Tuya");
+        request->send(500, F("text/plain"), F("Failed to switch Tuya"));
     } });
 
-  // http://192.168.1.252/deletelog?deletelog=true
+  // http://192.168.1.254/deletelog?deletelog=true
   webServer.on("/deletelog", HTTP_GET, [](AsyncWebServerRequest *request)
-               {    if (!request->hasParam("deletelog")) {request->send(400, "text/plain", "Missing 'state' parameter"); return;}
+               {    if (!request->hasParam("deletelog")) {request->send(400, F("text/plain"), F("Missing 'state' parameter")); return;}
     String stateStr = request->getParam("deletelog")->value();
     bool state = (stateStr == "1" || stateStr.equalsIgnoreCase("true"));
     // Возвращаем ответ
 
     if (state) {
-        request->send(200, "text/plain", Logger.deleteLog() ? "Log file deleted." : "Failed to delete log file");
+        request->send(200, F("text/plain"), Logger.deleteLog() ? F("Log file deleted.") : F("Failed to delete log file"));
     } else {
-        request->send(500, "text/plain", "Incorrect deletion log request. tap command:  /deletelog?deletelog=true");
+        request->send(500, F("text/plain"), F("Incorrect deletion log request. tap command:  /deletelog?deletelog=true"));
     } });
 
   webServer.serveStatic("/", LittleFS, "/"); // відправляємо файли на HTTP запити з ФС
@@ -144,7 +139,7 @@ void loop()
     static byte attempt = 0;
     if (attempt++ >= 50) // 5 минут
     {
-      Logger.print("WiFi.status() != WL_CONNECTED -> ESP.restart()");
+      Logger.print(F("WiFi.status() != WL_CONNECTED -> ESP.restart()"));
       ESP.restart();
     }
     if (!WiFi.reconnect())
@@ -167,7 +162,7 @@ void loop()
       prevMillisAP = millis();
     else
     {
-      Logger.print("WIFI_MODE_AP > 5 min without client`s -> ESP.restart()");
+      Logger.print(F("WIFI_MODE_AP > 5 min without client`s -> ESP.restart()"));
       ESP.restart();
     }
   }
@@ -175,13 +170,14 @@ void loop()
   static u32_t prevMillisLog = 0;
   if ((millis() - prevMillisLog) > (30UL * 60UL * 1000UL))
   {
-    Logger.printf("Ubat = %.3f", battery.getVoltage());
     prevMillisLog = millis();
+    Logger.printf("Ubat = %.3f", battery.getVoltage());
   }
 
   static u32_t prevMillis = 0;
   if ((millis() - prevMillis) > 500) // Время обновления
   {
+    prevMillis = millis();
     battery.measure();
     JsonDocument doc;
     doc["bat4"] = battery.getVoltage();
@@ -200,8 +196,6 @@ void loop()
     {
       settings.tuyaSwith = tuyaSwith;
     }
-
-    prevMillis = millis();
   }
   yield();
   loopTelegram();
@@ -250,3 +244,45 @@ inline bool compareVmin(float V, float Vmin, bool *tuyaState, u32_t delayMin)
   }
   return false;
 }
+
+// Как настроить роутер:
+// Зайди в интерфейс роутера:
+// 👉 Обычно это http://192.168.0.1 или http://192.168.1.1
+
+// Найди раздел:
+// Port Forwarding, Virtual Server, NAT, или Advanced > NAT Forwarding
+
+// Добавь новое правило:
+
+// Поле	Значение
+// Имя/Описание	ESP32
+// Внешний порт	12345 (любой свободный порт)
+// Внутренний IP	192.168.1.123 (IP ESP32)
+// Внутренний порт	80 (если ESP32 на порту 80)
+// Протокол	TCP (или TCP/UDP)
+
+// Введи данные No-IP
+// Поле	Что указать
+// Сервис	No-IP
+// Имя хоста	partizanska.ddns.net
+// Имя пользователя	Email, который ты указал в No-IP nesj5kp@ddnskey.com
+// Пароль	Пароль от No-IP DiT9EztcyARr
+// Интерфейс	WAN / Интернет
+// Обновление	Автоматическое (роутер сам обновляет IP)
+
+// ✅ Включи опцию «Enable DDNS» или «Обновлять автоматически»
+
+// Пробросить порт:
+// Например:
+
+// Внешний порт: 12345
+
+// Внутренний IP: 192.168.1.123 (ESP32)
+
+// Внутренний порт: 80
+
+// 🔗 Получить доступ к ESP32 извне:
+// arduino
+// Копировать
+// Редактировать
+// http://partizanska.ddns.net:12345

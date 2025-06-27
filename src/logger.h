@@ -32,7 +32,7 @@ void LOGGER::wifi_disconect()
 
     if (!oneWriteConected and WiFi.status() == WL_CONNECTED)
     {
-        print("Wifi conected.");
+        print(F("Wifi conected."));
         oneWriteConected = true;
         oneWriteDisconected = false;
     }
@@ -55,8 +55,8 @@ void LOGGER::printToFile(const char *filename, const char *str)
         File file = LittleFS.open(filename, "a");
         if (file)
         {
-            file.print("Скінчилося місце у ФС.");
-            myBot.sendMessage(msg, "Скінчилося місце у ФС. Файл логу видалений.");
+            file.print(F("Скінчилося місце у ФС."));
+            myBot.sendMessage(msg, F("Скінчилося місце у ФС. Файл логу видалений."));
             myBot.sendDocument(msg, file, file.size(), AsyncTelegram2::DocumentType::TEXT, file.name());
             file.close();
         }
@@ -82,7 +82,7 @@ void LOGGER::timeString(char *timeStr, size_t size)
     while (!getLocalTime(&timeinfo, 1000) and (millis() - prevMillis) < 15000)
     {
 
-        Serial.println("Подключение к NTP...");
+        Serial.println(F("Подключение к NTP..."));
     }
     // Форматируем время для логирования
     strftime(timeStr, size, TIMEFORMAT, &timeinfo);
@@ -90,58 +90,62 @@ void LOGGER::timeString(char *timeStr, size_t size)
 
 const char *LOGGER::getResetReasonStr(esp_reset_reason_t reason)
 {
+    #define FSH (const char *)F
     switch (reason)
     {
     case ESP_RST_UNKNOWN:
-        return "ESP_RST_UNKNOWN";
+        return FSH("ESP_RST_UNKNOWN");
     case ESP_RST_POWERON:
-        return "Power-on reset";
+        return FSH ("Power-on reset");
     case ESP_RST_EXT:
-        return "External reset";
+        return FSH("External reset");
     case ESP_RST_SW:
-        return "Software reset";
+        return FSH("Software reset");
     case ESP_RST_PANIC:
-        return "Exception/panic reset";
+        return FSH("Exception/panic reset");
     case ESP_RST_INT_WDT:
-        return "Interrupt watchdog reset";
+        return FSH("Interrupt watchdog reset");
     case ESP_RST_TASK_WDT:
-        return "Task watchdog reset";
+        return FSH("Task watchdog reset");
     case ESP_RST_WDT:
-        return "Other watchdog reset";
+        return FSH("Other watchdog reset");
     case ESP_RST_DEEPSLEEP:
-        return "Wake from deep sleep";
+        return FSH("Wake from deep sleep");
     case ESP_RST_BROWNOUT:
-        return "Brownout reset";
+        return FSH("Brownout reset");
     case ESP_RST_SDIO:
-        return "SDIO reset";
+        return FSH("SDIO reset");
     default:
-        return "Unknown reset";
+        return FSH("Unknown reset");
     }
+    #undef FSH
 }
 
 const char *LOGGER::getWiFiStatusStr(wl_status_t statatus)
 {
+    #define FSH (const char *)F
     switch (statatus)
     {
     case WL_NO_SHIELD:
-        return "WL NO SHIELD";
+        return FSH("WL NO SHIELD");
     case WL_IDLE_STATUS:
-        return "WL IDLE STATUS";
+        return FSH("WL IDLE STATUS");
     case WL_NO_SSID_AVAIL:
-        return "WL NO SSID AVAIL";
+        return FSH("WL NO SSID AVAIL");
     case WL_SCAN_COMPLETED:
-        return "WL SCAN COMPLETED";
+        return FSH("WL SCAN COMPLETED");
     case WL_CONNECTED:
-        return "WL CONNECTED";
+        return FSH("WL CONNECTED");
     case WL_CONNECT_FAILED:
-        return "WL CONNECT FAILED";
+        return FSH("WL CONNECT FAILED");
     case WL_CONNECTION_LOST:
-        return "WL CONNECTION LOST";
+        return FSH("WL CONNECTION LOST");
     case WL_DISCONNECTED:
-        return "WL DISCONNECTED";
+        return FSH("WL DISCONNECTED");
     default:
-        return "Unknown WL status";
+        return FSH("Unknown WL status");
     }
+     #undef FSH
 }
 
 size_t LOGGER::write(uint8_t ch)
