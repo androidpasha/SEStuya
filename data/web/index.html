@@ -110,7 +110,7 @@
         <tr>
             <td>
                 <div class="center"><label for="tuyaLocalKey"><b>Tuya locak key:</b></label><br>
-                    <input id="tuyaLocalKey" name="tuyaLocalKey" placeholder="Ключ пристрою">
+                    <input type="password" id="tuyaLocalKey" name="tuyaLocalKey" placeholder="Ключ пристрою">
                 </div>
             </td>
         </tr>
@@ -179,7 +179,7 @@
 
         <td class="noinvisible">
             <div class="center"><label for="telegramBotToken"><b>Telegram bot token:</b></label><br>
-                <input type="text" id="telegramBotToken" name="telegramBotToken" placeholder="Впишіть token">
+                <input type="password" id="telegramBotToken" name="telegramBotToken" placeholder="Впишіть token">
             </div>
         </td>
     </table>
@@ -188,10 +188,8 @@
         <br><button id="ButtonSave" type="submit" onclick="saveSettings()">Зберегти</button><br><br>
         <br><a href="log.txt">Переглянути log.txt</a><br><br><br>
         <br><a href="graph.html">Переглянути графік напруги</a><br><br><br>
-        <br><a href="#" onclick="confirmDelete(event)">видалити log.txt</a><br><br><br>
+        <br><a href="#" onclick="confirmDelete(event)">Видалити log.txt</a><br><br><br>
     </div>
-  
-    
+      
 </body>
-
 </html>

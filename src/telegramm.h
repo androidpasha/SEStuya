@@ -14,9 +14,9 @@
 
 WiFiClientSecure client;
 AsyncTelegram2 myBot(client);
-ReplyKeyboard keyboard;               // reply keyboard object helper
-InlineKeyboard inlineKeyboard;        // inline keyboard object helper
-bool isKeyboardActive = true;         // store if the reply keyboard is shown
+ReplyKeyboard keyboard;                    // reply keyboard object helper
+InlineKeyboard inlineKeyboard;             // inline keyboard object helper
+bool isKeyboardActive = true;              // store if the reply keyboard is shown
 #define SWITH_ON_CALLBACK FSH("SwithON")   // callback data sent when "LIGHT ON" button is pressed
 #define SWITH_OFF_CALLBACK FSH("SwithOFF") // callback data sent when "LIGHT OFF" button is pressed
 extern RTC_NOINIT_ATTR bool tuyaSwith;
@@ -28,7 +28,7 @@ extern const char *logFile;
 
 const char *getResetReasonStr(esp_reset_reason_t reason)
 {
-    #define FSH (const char *)F
+#define FSH (const char *)F
     switch (reason)
     {
     case ESP_RST_UNKNOWN:
@@ -69,13 +69,13 @@ bool setupTelegramBot()
     if (!myBot.begin())
         return false;
     // Налаштування клавіатур
-    keyboard.addButton(FSH("Інформація пристрою"));
-    keyboard.addRow();
-    keyboard.addButton(FSH("Керування розеткою"));
+    keyboard.addButton(FSH("Стан пристрою"));
+    // keyboard.addRow();
+    keyboard.addButton(FSH("Керування Tuya"));
     keyboard.addRow();
     keyboard.addButton(FSH("Завантажити log.txt"));
-    keyboard.addRow();
-    keyboard.addButton(FSH("Встановити координати GPS"), KeyboardButtonLocation);
+    // keyboard.addRow();
+    // keyboard.addButton(FSH("Встановити координати GPS"), KeyboardButtonLocation);
     keyboard.enableResize();
     // Add sample inline keyboard
     inlineKeyboard.addButton(FSH("ON"), SWITH_ON_CALLBACK, KeyboardButtonQuery);
@@ -109,7 +109,17 @@ void loopTelegram()
                 myBot.sendMessage(msg, FSH("Оберіть дію:"), keyboard);
                 isKeyboardActive = true;
             }
-
+            else if (msgText.equalsIgnoreCase(F("/getSettings")))
+            {
+                File file = LittleFS.open(settingsFile, "r");
+                if (file)
+                {
+                    myBot.sendDocument(msg, file, file.size(), AsyncTelegram2::DocumentType::BINARY, file.name());
+                    file.close();
+                }
+                else
+                    myBot.sendMessage(msg, FSH("Відсутній settings.bin"));
+            }
             // check if the reply keyboard is active
             else if (isKeyboardActive)
             {
@@ -124,13 +134,13 @@ void loopTelegram()
                     else
                         myBot.sendMessage(msg, FSH("Відсутній log.txt"));
                 }
-                else if (msgText.equalsIgnoreCase(FSH("Керування розеткою")))
+                else if (msgText.equalsIgnoreCase(FSH("Керування Tuya")))
                 {
-                    myBot.sendMessage(msg, FSH("Керування розеткою:"), inlineKeyboard);
+                    myBot.sendMessage(msg, FSH("Керування Tuya:"), inlineKeyboard);
                 }
-                else if (msgText.equalsIgnoreCase(FSH("Інформація пристрою")))
+                else if (msgText.equalsIgnoreCase(FSH("Стан пристрою")))
                 {
-                    char infoMsg[200];
+                    char *infoMsg = nullptr;
                     char workTime[30];
                     time(&endTime);
                     time_t elapsed = endTime - startTime;
@@ -139,9 +149,23 @@ void loopTelegram()
                     sprintf(timeStr, FSH("%2d д. "), elapsed / (time_t)(60 * 60 * 24));
                     struct tm *timeInfo = gmtime(&elapsed);
                     strftime(timeStr + strlen(timeStr), len, FSH("%H:%M:%S"), timeInfo);
-                    size_t FSfree = LittleFS.totalBytes() - LittleFS.usedBytes();
-                    sprintf(infoMsg, FSH("Напруга батареї: %.3f В.\nUмакс = %.1f В.\nUмин = %.1f В.\nРозетка %s.\nЧас роботи: %s\nВільна ОЗУ %u б.\nВільна ФС %u б."), battery.getVoltage(), settings.bataryVoltageMax, settings.bataryVoltageMin, tuyaSwith ? "увімкнута" : "вимкнута", timeStr, ESP.getMinFreeHeap(), FSfree);
+
+                    asprintf(&infoMsg, FSH("Данні ESP:\n"
+                                           "  Напруга батареї: %.3f В;\n"
+                                           "  Встановленi межi:\n"
+                                           "        Uмакс:  %.1f В;\n"
+                                           "        Uмин:    %.1f В.\n"
+                                           "  Час роботи: %s\n"
+                                           "  Вiльна ОЗУ:  %u б;\n"
+                                           "  Вiльна  ФС:   %u б.\n"
+                                           "\nДанні Tuya:\n%s"),
+                             battery.getVoltage(), settings.bataryVoltageMax, settings.bataryVoltageMin,
+                             timeStr,
+                             ESP.getMinFreeHeap(),
+                             LittleFS.totalBytes() - LittleFS.usedBytes(),
+                             Rozetka.getStateString().c_str());
                     myBot.sendMessage(msg, infoMsg);
+                    free(infoMsg);
                 }
                 else
                 {
@@ -194,20 +218,21 @@ void loopTelegram()
             }
             break;
 
-        case MessageLocation:
-        {
-            // received a location message
-            String reply = F("Отримані координати:\n Довгота: ");
-            reply += msg.location.longitude;
-            reply += F(";\n Широта: ");
-            reply += msg.location.latitude;
-            myBot.sendMessage(msg, reply);
-            break;
-        }
+            /*       case MessageLocation:
+                {
+                    // received a location message
+                    String reply = F("Отримані координати:\n Довгота: ");
+                    reply += msg.location.longitude;
+                    reply += F(";\n Широта: ");
+                    reply += msg.location.latitude;
+                    myBot.sendMessage(msg, reply);
+                    break;
+                }
+                */
         default:
             break;
         }
     }
 }
-#undef FSH
 
+#undef FSH

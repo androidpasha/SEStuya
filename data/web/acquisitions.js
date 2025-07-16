@@ -90,7 +90,8 @@ async function loadAndParseData(url) {
   const data = [];
 
   for (const line of lines) {
-    const match = line.match(/^(\d{2})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}) Ubat\s*=\s*([\d.]+)/);
+       const match = line.match(/^(\d{2})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}) ([\d.]+)/);
+    // const match = line.match(/^(\d{2})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}) Ubat\s*=\s*([\d.]+)/);
     if (!match) continue;
 
     const [, dd, mm, yy, hh, min, valueStr] = match;

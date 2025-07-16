@@ -4,145 +4,137 @@
 #include <WiFi.h>
 #include <lwip/inet.h>
 #include <time.h>
-#define header_Sizes 31 // Фиксированный размер заголовка
-#define TailSize 8    // Фиксированный размер хвоста (crc32 и фиксированный код 0xAA 0x55)
+#include <ArduinoJson.h>
+#define FSH (const char *)F
 
 class Tuya
 {
-private:
-  WiFiClient client;
-  void payloadConfigure(char *input_string, const uint8_t len, const char *devId, const char *dpsValue);                                   // Создает json запрос с командой
-  bool aesEncrypt(uint8_t *output_data, size_t output_data_len, const char *input_string, size_t input_string_len, const char *localKey); // Кодирует запрос
-  bool aesDecrypt(const uint8_t *input_data, size_t input_data_len, char *output_data, const char *localKey);
-  uint32_t crc32(const uint8_t *data, size_t length);                                                                                      // CRC32
-  bool sendCommand(uint8_t *payload, size_t size, const char *devIp);                                                                    // передает данные
 public:
-  const char *devId;
-  const char *localKey; // Ваш ключ AES (16 байтов)
-  const char *devIp;
-  void set_tuya_ip(const char *devIp){
-    char *tmp_ptr = new  char[16]{};
-    strcpy(tmp_ptr, devIp);
+  void set_tuya_ip(const char *devIp)
+  {
+    if (this->devIp != nullptr)
+      delete[] this->devIp;
+    char *tmp_ptr = new char[16]{};
+    strncpy(tmp_ptr, devIp, 15);
+    tmp_ptr[15] = '\0';
     this->devIp = tmp_ptr;
   };
-void set_devId(const char *devId){
-  this->devId = devId;
-}
-void set_LOCAL_KEY(const char *localKey){
-  this->localKey = localKey;
-}
-
-
-  //Tuya(const Tuya&) = delete;
-  Tuya& operator=(const Tuya&) = delete;
-  ~Tuya(){delete[] this->devIp;}
-  //Tuya() = delete;
-  Tuya(){}
-  Tuya(const char *devIp, const char *devId, const char *localKey)
-      : devIp(devIp), devId(devId), localKey(localKey) {}
+  void set_devId(const char *devId) { this->devId = devId; }
+  void set_LOCAL_KEY(const char *localKey) { this->localKey = localKey; }
   bool relay(bool state);
   bool on() { return relay(HIGH); }
   bool off() { return relay(LOW); }
+  JsonDocument getStateJson();
+  String getStateString();
+  Tuya(const char *devIp, const char *devId, const char *localKey)
+      : devIp(devIp), devId(devId), localKey(localKey) {}
+  Tuya &operator=(const Tuya &) = delete;
+  ~Tuya() { delete[] this->devIp; }
+  Tuya() {}
+
+private:
+  WiFiClient client;
+  bool sendCommand(uint8_t *payload, size_t size, const char *devIp, JsonDocument &doc); // передает данные
+  bool aesDecrypt(const uint8_t *input_data, size_t input_data_len, char *output_data, const char *localKey);
+  int aesEncrypt(const char *str, std::vector<uint8_t> &data);
+  uint32_t crc32(const uint8_t *data, size_t length); // CRC32
+  const char *devId;
+  const char *localKey; // Ваш ключ AES (16 байтов)
+  const char *devIp;
+  uint32_t counter;
 };
 
 bool Tuya::relay(bool state)
 {
-  const size_t input_string_len = 97; // Длинна сообщения фиксирована для вкл/откл розетки
-  char input_string[input_string_len] = {};
-  const char *dpsValue = nullptr; // команда включения отключения в запросе (true/folse)
-  state ? dpsValue = "true" : dpsValue = "false";
-  payloadConfigure(input_string, input_string_len, devId, dpsValue);
-  const int padded_len = ((input_string_len / 16) + 1) * 16;
-  constexpr size_t output_data_len = header_Sizes + padded_len + TailSize;
-  uint8_t output_data[output_data_len] = {};
-  aesEncrypt(output_data, output_data_len, input_string, input_string_len, localKey);
-  return sendCommand(output_data, output_data_len, devIp); // Отправка данных
+  const uint8_t header[] PROGMEM = {
+      0x00, 0x00, 0x55, 0xAA, // Фиксированный заголовок
+      0x01, 0x00, 0x00, 0x00, // счетчик, Идентификатор сообщения. Такой же возвращается в ответ.
+      0x00, 0x00, 0x00, 0x07, // Команда 0x00..0x0E
+      0x00, 0x00, 0x00, 0x00, // Длина зашифрованных данных плюс 8 байт (CRC32 и суффикс)
+      0x33, 0x2E, 0x33, 0x00, // Версия 3.3
+      0x00, 0x00, 0x00, 0x00, // хз
+      0x00, 0x00, 0x00, 0x00, // хз
+      0x00, 0x00, 0x00,       // хз
+  };
+  const uint8_t tail[] PROGMEM = {0x00, 0x00, 0xAA, 0x55}; // 00 00 aa55
+  std::vector<uint8_t> data;
+  char *payload = nullptr;
+
+  asprintf(&payload, FSH(R"({"devId":"%s","uid":"%s","t":"%lu","dps":{"1":%s}})"), devId, devId, time(nullptr), state == true ? "true" : "false");
+  aesEncrypt(payload, data);
+  free(payload);
+
+  uint32_t total_payload_len = htonl(data.size() + 23); // Длина зашифрованных данных плюс 8 байт (CRC32 и суффикс)
+  data.insert(data.begin(), header, header + sizeof(header));
+
+  uint32_t *pComandCounter = (uint32_t *)(data.data() + 4); // Создаем ссылку на адресс масива где хранится номер команды
+  *pComandCounter = htonl(counter++);
+
+  uint32_t *pTotal_payload_len = (uint32_t *)(data.data() + 12);
+  *pTotal_payload_len = total_payload_len;
+
+  uint32_t crc = htonl(crc32(data.data(), data.size()));
+  data.insert(data.end(), (uint8_t *)&crc, (uint8_t *)&crc + sizeof(crc));
+  data.insert(data.end(), tail, tail + sizeof(tail));
+
+  JsonDocument doc;
+  sendCommand(data.data(), data.size(), devIp, doc); // Отправка данных
+
+  bool result = false;
+  if (doc[F("dps")]["1"].is<bool>())
+    result = doc[F("dps")]["1"] == state ? true : false;
+  return result;
 }
 
-bool Tuya::aesEncrypt(uint8_t *output_data, size_t output_data_len, const char *input_string, size_t input_string_len, const char *localKey)
+JsonDocument Tuya::getStateJson() // реализовать счетчик, Идентификатор сообщения.
 {
-  {
-    // Заголовок
-    const uint8_t header[] = {
-        0x00, 0x00, 0x55, 0xAA, // Фиксированный заголовок
-        0x01, 0x00, 0x00, 0x00, // счетчик, Идентификатор сообщения. Такой же возвращается в ответ.
-        0x00, 0x00, 0x00, 0x07, // Команда 0x00..0x0E
-        0x00, 0x00, 0x00, 0x00, // Длина зашифрованных данных плюс 8 байт (CRC32 и суффикс)
-        0x33, 0x2E, 0x33, 0x00, // Версия 3.3
-                                // 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 //ноли
-    };
-    if (output_data_len < sizeof(header))
-      return false;
-    memcpy(output_data, header, sizeof(header)); // Копируем заголовок в массив байтов
-  }
-
-  uint32_t *p_comandCounter = (uint32_t *)(output_data + 4); // Создаем ссылку на адресс масива где хранится номер команды
-  static uint32_t counter = 0;
+  const uint8_t header[] PROGMEM = {
+      0x00, 0x00, 0x55, 0xAA, // Фиксированный заголовок
+      0x00, 0x00, 0x00, 0x01, // счетчик, Идентификатор сообщения. Такой же возвращается в ответ.
+      0x00, 0x00, 0x00, 0x0A, // Команда 0x00..0x0E должно 0A
+      0x00, 0x00, 0x00, 0x11, // Длина зашифрованных данных плюс 8 байт (CRC32 и суффикс)
+  };
+  const uint8_t tail[] PROGMEM = {0x00, 0x00, 0xAA, 0x55}; // 00 00 aa55
+  std::vector<uint8_t> data;
+  char *payload = nullptr;
+  asprintf(&payload, FSH(R"({"gwId":"%s","devId":"%s","uid":"%s","t":"%lu"})"), devId, devId, devId, time(nullptr));
+  aesEncrypt(payload, data);
+  free(payload);
+  uint32_t total_payload_len = htonl(data.size() + sizeof(uint32_t) + sizeof(tail)); // Длина зашифрованных данных плюс 8 байт (CRC32 и суффикс)
+  data.insert(data.begin(), header, header + sizeof(header));
+  uint32_t *p_comandCounter = (uint32_t *)(data.data() + 4); // Создаем ссылку на адресс масива где хранится номер команды
   *p_comandCounter = htonl(counter++);
+  uint32_t *pTotal_payload_len = (uint32_t *)(data.data() + 12);
+  *pTotal_payload_len = total_payload_len;
+  uint32_t crc = htonl(crc32(data.data(), data.size()));
+  data.insert(data.end(), (uint8_t *)&crc, (uint8_t *)&crc + sizeof(crc));
+  data.insert(data.end(), tail, tail + sizeof(tail));
+  JsonDocument doc;
+  sendCommand(data.data(), data.size(), devIp, doc); // Отправка данных
+  return doc;
+}
 
-  // на потом, команды сообщения в 11м байте
-  // enum  Comands {
-  //   HEART_BEAT = 0x00,    //Пинг / проверка связи
-  //   PRODUCT_INFO = 0x01,  //Информация об устройстве
-  //   WORK_MODE = 0x02,     //Рабочий режим
-  //   WIFI_STATE = 0x03,    //Состояние Wi-Fi
-  //   WIFI_RESET = 0x04,    //Сброс Wi-Fi
-  //   WIFI_MODE = 0x05,     //Режим Wi-Fi
-  //   DATA = 0x06,          //Передача команд управления (вкл/выкл и др)
-  //   STATE = 0x07,         //Получение состояния устройства
-  //   STATE_RESPONSE = 0x08,//Ответ на запрос состояния
-  //   DP_QUERY = 0x09,      //Запрос значения DP (data point)
-  //   DP_QUERY_RESPONSE = 0x0A,//Ответ на DP_QUERY
-  //   CONTROL = 0x0B,       //Управление устройством (часто тоже 0x07)
-  //   STATUS_REPORT = 0x0C, //Отчет об изменении состояния
-  //   STATUS_REPORT_RESPONSE = 0x0D,//Ответ на отчет
-  //   RESET_FACTORY = 0x0E  //Сброс на заводские
-  // };
-  // output_data[11] = DATA;
-
-  const size_t padded_len = ((input_string_len / 16) + 1) * 16; // Делаем длину строки кратной 16
-  uint8_t *input_data = new uint8_t[padded_len]{};
-
-  if (output_data_len < input_string_len)
-    return false;
-  memcpy(input_data, input_string, input_string_len); // Копируем строку в массив байтов
-  // Добавляем padding (PKCS7)
-  const size_t block_size = 16;
-  size_t pad_len = block_size - (input_string_len % block_size);
-  for (size_t i = input_string_len; i < input_string_len + pad_len; i++)
-  {
-    input_data[i] = pad_len; // Заполнение байтами с значением pad_len
-  }
-  uint32_t *total_payload_len = (uint32_t *)(output_data + 12);       // Создаем ссылку на адресс масива где хранится длина сообщения
-  *total_payload_len = htonl(padded_len + header_Sizes - (const int)8); // Расчет длинны сообщения, перевод байт в big-endian и сразу запись в массив
-
-  // Инициализация AES контекста
+int Tuya::aesEncrypt(const char *str, std::vector<uint8_t> &data)
+{
+  int result = 0;
+  // Копируем строку в вектор, увеличиваем размер вектора чтоб был кратный 16 и заполняем хвост data.size() % 16
+  data.clear();
+  data.insert(data.end(), (uint8_t *)str, (uint8_t *)(str + strlen(str)));
+  uint8_t pad_len = 16 - (data.size() % 16);
+  // pad_len = (pad_len == 0) ? 16 : pad_len;
+  data.insert(data.end(), pad_len, pad_len);
+  const size_t padded_len = data.size();
+  // Инициализация AES
   mbedtls_aes_context aes_ctx;
   mbedtls_aes_init(&aes_ctx);
-
-  // Инициализация шифратора
   mbedtls_aes_setkey_enc(&aes_ctx, (const unsigned char *)localKey, 128);
+  // шифрование
 
   for (size_t i = 0; i < padded_len; i += 16)
-  {
-    mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, input_data + i, output_data + i + header_Sizes);
-  }
+    result += mbedtls_aes_crypt_ecb(&aes_ctx, MBEDTLS_AES_ENCRYPT, (const unsigned char *)(data.data() + i), (unsigned char *)(data.data() + i));
+
   mbedtls_aes_free(&aes_ctx); // Очистка контекста
-  delete[] input_data;
-
-  uint32_t crc = htonl(crc32(output_data, padded_len + header_Sizes));
-  if (padded_len + header_Sizes < sizeof(crc))
-    return false;
-  memcpy(&output_data[padded_len + header_Sizes], &crc, sizeof(crc));            // Пишем контрольную сумму в хвост
-  memcpy(&output_data[padded_len + header_Sizes + TailSize - 2], "\xAA\x55", 2); // фиксированный хвост
-  return true;
-}
-
-void Tuya::payloadConfigure(char *input_string, const uint8_t len, const char *devId, const char *dpsValue)
-{
-  struct tm timeinfo;
-  getLocalTime(&timeinfo, 100); // Получаем системное время
-  sprintf(input_string, "{\"devId\":\"%s\",\"uid\":\"%s\",\"t\":\"%lu\",\"dps\":{\"1\":%s}}", devId, devId, mktime(&timeinfo), dpsValue);
+  return result;
 }
 
 uint32_t Tuya::crc32(const uint8_t *data, size_t length)
@@ -162,81 +154,116 @@ uint32_t Tuya::crc32(const uint8_t *data, size_t length)
   return ~crc;
 }
 
-bool Tuya::sendCommand(uint8_t *payload, size_t size, const char *devIp)
+bool Tuya::sendCommand(uint8_t *payload, size_t size, const char *devIp, JsonDocument &doc)
 {
   if (client.connect(devIp, 6668))
   {
-    delay(50);
-    Serial.printf("Соединение с Tuya успешно!\n");
+    Serial.printf(FSH("Соединение с Tuya успешно!\n"));
     client.write(payload, size);
     client.flush();
 
     // Чтение ответа
-    delay(200);
     uint32_t start = millis();
     bool result = false;
-    while (millis() - start < 700) // ждём до 1 сек
+    while (millis() - start < 900) // ждём до 1 сек
     {
       u16_t len = client.available();
       if (len)
       {
         uint8_t *buf = new uint8_t[len];
-        //client.readString();
         client.readBytes(buf, len);
         uint32_t *payload_size = (uint32_t *)(buf + 12);
         *payload_size = htonl(*payload_size);
-        Serial.printf("\nПринят ответ размером %u байт. Payload_size = %u :\n", len, *payload_size);
-        for (size_t i = 0; i < len; i++)
-          Serial.printf("%02X ", buf[i]);
-        if (*((uint32_t*)(payload + 4))==*((uint32_t*)(buf + 4))){ // сравниваем счетчики сообщений
+        Serial.printf(FSH("\nПринят ответ размером %u байт. Payload_size = %u %s\n"), len, *payload_size, (*payload_size > 12) ? ":" : ".");
+        if (*((uint32_t *)(payload + 4)) == *((uint32_t *)(buf + 4))) // сравниваем счетчики сообщений
           result = true;
-        }
 
-        if(*payload_size > 12){
-            char str[80]={};
-            #define START_PAYLOAD_BYTE 35
-            aesDecrypt(buf + START_PAYLOAD_BYTE, *payload_size-27, str, localKey);
-            Serial.printf("\nPayload: %s. Содержит символов:%u.", str, strlen(str)); //{"devId":"0805180743ddcxxxxxxx","dps":{"1":true},"t":1747670040}
+        if (*payload_size > 12)
+        {
+          char *str = new char[*payload_size]{};
+          int8_t START_PAYLOAD_BYTE = 20,
+                 END_PAYLOAD_BYTE = 12;
+
+          if (buf[20] == 0x33 and buf[21] == 0x2E and buf[22] == 0x33) // Проверка на версию 3.3
+          {
+            START_PAYLOAD_BYTE = 35;
+            END_PAYLOAD_BYTE = 27;
+          }
+          aesDecrypt(buf + START_PAYLOAD_BYTE, *payload_size - END_PAYLOAD_BYTE, str, localKey);
+          // Serial.printf("\nPayload: %s. Содержит символов:%u.", str, strlen(str)); //{"devId":"0805180743ddcxxxxxxx","dps":{"1":true},"t":1747670040}
+
+          deserializeJson(doc, str);
+          serializeJsonPretty(doc, Serial);
+          Serial.println();
+          delete[] str;
+          delete[] buf;
+          break;
         }
-        delete[] buf; 
+        delete[] buf;
       }
     }
 
     client.stop();
-    Serial.printf("\nСоединение закрыто. Отправка %s\n", result ? "успешна!" : "с ошибкой(((");
+    Serial.printf(FSH("\nСоединение закрыто. Отправка %s\n"), result ? FSH("успешна!") : FSH("с ошибкой((("));
     return result;
   }
   else
   {
-    Serial.println("Ошибка подключения к розетке!");
+    Serial.println(FSH("Ошибка подключения к розетке!"));
     return false;
   }
 }
 
-bool Tuya::aesDecrypt(const uint8_t *input_data, size_t input_data_len, char *output_data, const char *localKey) {
-  if (input_data_len % 16 != 0) {
-    Serial.println("Ошибка: длина входных данных должна быть кратна 16");
+bool Tuya::aesDecrypt(const uint8_t *input_data, size_t input_data_len, char *output_data, const char *localKey)
+{
+  if (input_data_len % 16 != 0)
+  {
+    Serial.println(FSH("Ошибка: длина входных данных должна быть кратна 16"));
     return false;
   }
   mbedtls_aes_context aes;
   mbedtls_aes_init(&aes);
   // Установка ключа
-  if (mbedtls_aes_setkey_dec(&aes, (const unsigned char *)localKey, 128) != 0) {
-    Serial.println("Ошибка установки ключа AES");
+  if (mbedtls_aes_setkey_dec(&aes, (const unsigned char *)localKey, 128) != 0)
+  {
+    Serial.println(FSH("Ошибка установки ключа AES"));
     mbedtls_aes_free(&aes);
     return false;
   }
   // Расшифровка по 16 байт
-  for (size_t i = 0; i < input_data_len; i += 16) {
-    if (mbedtls_aes_crypt_ecb(&aes, MBEDTLS_AES_DECRYPT, input_data + i, (unsigned char*)(output_data + i)) != 0) {
-      Serial.println("Ошибка расшифровки блока");
+  for (size_t i = 0; i < input_data_len; i += 16)
+  {
+    if (mbedtls_aes_crypt_ecb(&aes, MBEDTLS_AES_DECRYPT, input_data + i, (unsigned char *)(output_data + i)) != 0)
+    {
+      Serial.println(FSH("Ошибка расшифровки блока"));
       mbedtls_aes_free(&aes);
       return false;
     }
   }
   mbedtls_aes_free(&aes);
   uint8_t pad = output_data[input_data_len - 1];
-  //Обрезаем padding в строке 
+  // Обрезаем padding в строке
   output_data[input_data_len - pad] = '\0'; // если это строка
   return true;
 }
+
+String Tuya::getStateString()
+{
+  String result;
+  JsonDocument doc = getStateJson();
+  if (doc[F("dps")].is<JsonObject>())
+  {
+    JsonObject dps = doc["dps"];
+    char *payload = nullptr;
+    asprintf(&payload, FSH("  Cтан реле: %s;\n  Напруга мережі: %.01f В;\n  Потужність:          %.01f Вт;\n  Струм:                    %u мА."),
+             dps["1"] ? F("увімкнуто") : F("вимкнуто"), (int)dps["20"] / 10.0, (int)dps["19"] / 10.0, (int)dps["18"]);
+    Serial.println(payload);
+    result = String(payload);
+    free(payload);
+  }
+  else
+    result = "Помилка зв'язку";
+  return result;
+}
+
+#undef FSH

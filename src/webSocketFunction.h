@@ -15,9 +15,8 @@ extern AsyncWebSocket webSocket;
 extern bool saveFlagMeasurementDataToFile;
 extern Tuya Rozetka;
 typedef bool (*TuyaSwitchCallback)(bool state);
-//extern TuyaSwitchCallback onTuyaUserEvent;
+// extern TuyaSwitchCallback onTuyaUserEvent;
 TuyaSwitchCallback onTuyaUserEvent = nullptr;
-
 
 extern SaveToFsStruct settings;
 extern RTC_DATA_ATTR bool tuyaSwith;
@@ -55,13 +54,10 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
     if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
     {
       data[len] = '\0';
-      Serial.println((char *)data);
-// {"tuyaSwithUserPush":false}
-// {"tuyaSwithUserPush":true}
-
-
       JsonDocument doc; // 768
       deserializeJson(doc, (char *)data);
+      serializeJsonPretty(doc, Serial);
+
       if (doc["getSettings"].is<bool>())
       {
         webSocketSendeData();
@@ -69,37 +65,35 @@ void webSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEve
       // else if (doc["tuyaSwithUserPush"].is<bool>()){
       // onTuyaUserEvent(doc["tuyaSwithUserPush"] | false);
       // }
-      else{
-      tuyaSwith = settings.tuyaSwith = doc["tuyaSwith"] | false;
+      else
+      {
+        tuyaSwith = settings.tuyaSwith = doc["tuyaSwith"] | false;
 
-      strlcpy(settings.wifiSsid, doc["wifiSsid"] | "", sizeof(settings.wifiSsid));
-      strlcpy(settings.wifiPass, doc["wifiPass"] | "", sizeof(settings.wifiPass));
-      strlcpy(settings.tuyaDevId, doc["tuyaDevId"] | "", sizeof(settings.tuyaDevId));
-      strlcpy(settings.tuyaLocalKey, doc["tuyaLocalKey"] | "", sizeof(settings.tuyaLocalKey));
-      strlcpy(settings.telegramBotToken, doc["telegramBotToken"] | "", sizeof(settings.telegramBotToken));
+        strlcpy(settings.wifiSsid, doc["wifiSsid"] | "", sizeof(settings.wifiSsid));
+        strlcpy(settings.wifiPass, doc["wifiPass"] | "", sizeof(settings.wifiPass));
+        strlcpy(settings.tuyaDevId, doc["tuyaDevId"] | "", sizeof(settings.tuyaDevId));
+        strlcpy(settings.tuyaLocalKey, doc["tuyaLocalKey"] | "", sizeof(settings.tuyaLocalKey));
+        strlcpy(settings.telegramBotToken, doc["telegramBotToken"] | "", sizeof(settings.telegramBotToken));
 
-      settings.tuyaIp1 = doc["tuyaIp1"].as<int>();
-      settings.tuyaIp2 = doc["tuyaIp2"].as<int>();
-      settings.tuyaIp3 = doc["tuyaIp3"].as<int>();
-      settings.tuyaIp4 = doc["tuyaIp4"].as<int>();
-      {char s[15];
-      sprintf(s, "%d.%d.%d.%d",settings.tuyaIp1, settings.tuyaIp2, settings.tuyaIp3, settings.tuyaIp4);
-      Rozetka.set_tuya_ip(s);}
+        settings.tuyaIp1 = doc["tuyaIp1"].as<int>();
+        settings.tuyaIp2 = doc["tuyaIp2"].as<int>();
+        settings.tuyaIp3 = doc["tuyaIp3"].as<int>();
+        settings.tuyaIp4 = doc["tuyaIp4"].as<int>();
 
-
-      settings.timer = doc["timer"].as<int>();
-      settings.bataryVoltageMin = doc["bataryVoltageMin"].as<float>();
-      settings.bataryVoltageMax = doc["bataryVoltageMax"].as<float>();
-
-      if (SaveSettingsToLFS.write(settings)){
-        Logger.print("New settings write to FS. Reload...");
-      ESP.restart();
+        settings.timer = doc["timer"].as<int>();
+        settings.bataryVoltageMin = doc["bataryVoltageMin"].as<float>();
+        settings.bataryVoltageMax = doc["bataryVoltageMax"].as<float>();
+        if (SaveSettingsToLFS.write(settings))
+        {
+          Logger.print("New settings write to FS. Reload...");
+          delay(100);
+          ESP.restart();
+        }
       }
-
-}
     }
   }
 }
 
 void webSocketEventVoltage(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len)
-{}
+{
+}
