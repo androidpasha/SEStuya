@@ -20,7 +20,7 @@ bool isKeyboardActive = true;              // store if the reply keyboard is sho
 #define SWITH_ON_CALLBACK FSH("SwithON")   // callback data sent when "LIGHT ON" button is pressed
 #define SWITH_OFF_CALLBACK FSH("SwithOFF") // callback data sent when "LIGHT OFF" button is pressed
 extern RTC_NOINIT_ATTR bool tuyaSwith;
-extern time_t startTime, endTime;
+extern time_t startTime;//, endTime;
 extern VoltmetrESP32 battery;
 extern Tuya Rozetka;
 extern LOGGER Logger;
@@ -142,8 +142,9 @@ void loopTelegram()
                 {
                     char *infoMsg = nullptr;
                     char workTime[30];
-                    time(&endTime);
-                    time_t elapsed = endTime - startTime;
+                    // time(&endTime);
+                    // time_t elapsed = endTime - startTime;
+                    time_t elapsed = time(nullptr) - startTime;
                     constexpr int len = 50;
                     char timeStr[len];
                     sprintf(timeStr, FSH("%2d д. "), elapsed / (time_t)(60 * 60 * 24));

@@ -218,8 +218,9 @@ inline bool compareV(float V, float Vmin, float Vmax, bool *tuyaState, u32_t del
   if (startTimer == false and (V >= Vmax or V <= Vmin))
   {
     prevMillis = millis();
-    startTimer = true;
     nextState = (V >= Vmax) ? HIGH : LOW;
+    startTimer = (*tuyaState == nextState)? false : true;
+
   }
 
   if (startTimer == true and ((millis() - prevMillis) > (delayMin * 60 * 1000 + 1000)) and *tuyaState != nextState)
